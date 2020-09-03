@@ -4,6 +4,7 @@ from Common.config import *
 start = f'''
 Hi, this is bot to <a href="{site_url}">magazine.</a> 
 You can view goods here and then buy it on our site.
+Send me some command like /products to start.
 Good shopping!!!
 '''
 
@@ -43,3 +44,14 @@ filterPriceInvalid = 'Invalid format or data'
 
 showProducts = 'Results of your search'
 invalidValue = 'Invalid value!'
+
+outOfRange = 'This page is out of range'
+noData = 'Nothing was found'
+
+productItem = '''
+Name: {name}
+Price: {price}
+Colors: {colors}
+Sizes: {sizes}
+Description: {description}
+'''

@@ -9,12 +9,14 @@ class DB:
 
     def __init__(self):
         try:
+            # connect to db
             self.conn = connect(**config.dbConnection)
             self.cursor = self.conn.cursor(buffered=True)
         except Error as err:
             print('Error in connection', err.msg)
             exit(1)
 
+        # create table for bot
         self.createTable()
 
     def createTable(self):
@@ -22,7 +24,9 @@ class DB:
             self.cursor.execute('''CREATE TABLE IF NOT EXISTS `bot`(
                 `userID` INT UNIQUE NOT NULL,
                 `state` INT NOT NULL,
-                `details` TEXT DEFAULT NULL
+                `filters` TEXT DEFAULT NULL,
+                `page` INT DEFAULT 1,
+                `find` VARCHAR(255) DEFAULT NULL
             )''')
 
             self.conn.commit()
@@ -30,29 +34,39 @@ class DB:
             print('Error in creating table: ', err.msg)
             exit(1)
 
-    def createUser(self, userID, state=1, details=None):
-        if details is None:
-            details = dict()
+    def createUser(self, userID, state=1, filters=None):
+        if filters is None:
+            filters = dict()
 
         try:
+            # change user only if he exists in db else create new user
             if self.hasUser(userID):
-                self.changeUserState(userID, state, details)
+                self.changeUserState(userID, state, filters)
             else:
-                self.cursor.execute("INSERT INTO `bot` VALUES (%s, %s, %s)",
-                                    (userID, state, dumps(details)))
+                self.cursor.execute("INSERT INTO `bot` (`userID`, `state`, `filters`) "
+                                    "VALUES (%s, %s, %s)", (userID, state, dumps(filters)))
 
                 self.conn.commit()
         except Error as err:
             print('Error in user adding: ', err.msg)
 
-    def changeUserState(self, userID, state, details=None):
-        if details is None:
-            details = dict()
-
+    def changeUserState(self, userID, state=None, filters=None, page=None):
         try:
             if self.hasUser(userID):
-                self.cursor.execute("UPDATE `bot` SET `state` = %s, `details` = %s WHERE `userID` = %s",
-                                    (state, dumps(details), userID))
+                query = "UPDATE `bot` SET `userID`=`userID`"
+
+                if state:
+                    query += ", `state` = {1}"
+
+                if filters:
+                    query += ", `filters` = '{2}'"
+
+                if page:
+                    query += ", `page` = {3}"
+
+                query += " WHERE `userID` = {0}"
+
+                self.cursor.execute(query.format(userID, state, dumps(filters), page))
 
                 self.conn.commit()
             else:

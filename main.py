@@ -1,7 +1,7 @@
 import telebot
 from telebot.types import Message
 
-from Common import config, answers, states, keyboards
+from Common import config, answers, states, keyboards, helpers
 from DB import DB
 from HTTP import HTTP
 
@@ -24,29 +24,53 @@ def userHasState(state: int):
 def reset(message):
     if db.hasUser(message.chat.id):
         db.deleteUser(message.chat.id)
-        bot.send_message(message.chat.id, answers.resetSuccess, reply_markup=keyboards.removeKeyBoard())
+        bot.send_message(
+            message.chat.id,
+            answers.resetSuccess,
+            reply_markup=keyboards.removeKeyBoard()
+        )
     else:
-        bot.send_message(message.chat.id, answers.resetFailure, reply_markup=keyboards.removeKeyBoard())
+        bot.send_message(
+            message.chat.id,
+            answers.resetFailure,
+            reply_markup=keyboards.removeKeyBoard()
+        )
 
 
 @bot.message_handler(commands=['start'])
 def start(message: Message):
-    bot.send_message(message.chat.id, answers.start, reply_markup=keyboards.removeKeyBoard())
+    bot.send_message(
+        message.chat.id,
+        answers.start,
+        reply_markup=keyboards.removeKeyBoard()
+    )
 
 
 @bot.message_handler(commands=['about'])
 def about(message: Message):
-    bot.send_message(message.chat.id, answers.about, reply_markup=keyboards.removeKeyBoard())
+    bot.send_message(
+        message.chat.id,
+        answers.about,
+        reply_markup=keyboards.removeKeyBoard()
+    )
 
 
 @bot.message_handler(commands=['contacts'])
 def contacts(message: Message):
-    bot.send_message(message.chat.id, answers.contacts, reply_markup=keyboards.removeKeyBoard())
+    bot.send_message(
+        message.chat.id,
+        answers.contacts,
+        reply_markup=keyboards.removeKeyBoard()
+    )
 
 
 @bot.message_handler(commands=['site'])
 def site(message: Message):
-    bot.send_message(message.chat.id, answers.site, reply_markup=keyboards.removeKeyBoard())
+    bot.send_message(
+        message.chat.id,
+        answers.site,
+        reply_markup=keyboards.removeKeyBoard()
+    )
 
 
 @bot.message_handler(commands=['products'])
@@ -55,14 +79,14 @@ def products(message: Message):
 
     # send question and create user
     bot.send_message(message.chat.id, answers.productStart, reply_markup=reply)
-    db.createUser(message.chat.id)
+    db.createUser(message.chat.id, filters=dict())
 
 
 @bot.message_handler(func=userHasState(states.PRODUCTS_START))
 def willFilter(message: Message):
     if message.text == 'Yes':
         # start asking of filters
-        db.changeUserState(message.chat.id, states.FILTER_CATEGORY)
+        db.changeUserState(message.chat.id, states.FILTER_CATEGORY, dict(), 1)
 
         # make keyboard of categories
         filters = http.getFilters()
@@ -72,10 +96,10 @@ def willFilter(message: Message):
 
     elif message.text == 'No':
         # show all products
-        db.changeUserState(message.chat.id, states.SHOW_PRODUCTS)
+        db.changeUserState(message.chat.id, states.SHOW_PRODUCTS, filters=dict(), page=1)
 
-        reply = keyboards.removeKeyBoard()
-        bot.send_message(message.chat.id, answers.showProducts, reply_markup=reply)
+        # send products
+        getProducts(message)
 
     else:
         bot.send_message(
@@ -86,133 +110,170 @@ def willFilter(message: Message):
 
 @bot.message_handler(func=userHasState(states.FILTER_CATEGORY))
 def filterCategory(message: Message):
-    # skip this filter
-    if message.text == '.':
-        userDetails: dict = db.getUser(message.chat.id)[2]
-        db.changeUserState(message.chat.id, states.FILTER_SIZE, userDetails)
+    userFilters: dict = db.getUser(message.chat.id)[2]
+    userFilters['categories'] = []
 
-        return
+    if message.text != '.':
+        # get filters
+        filters = http.getFilters()
+        categories: list = list(map(lambda item: item['name'], filters['categories']))
 
-    # get filters
-    filters = http.getFilters()
-    categories: list = list(map(lambda item: item['name'], filters['categories']))
+        # find category
+        index = categories.index(message.text)
 
-    # find category
-    index = categories.index(message.text)
+        if index != -1:
+            # add filter to db
+            catID = filters['categories'][index]['id']
+            userFilters['categories'] = {catID: True}
 
-    if index != -1:
-        # add filter to db
-        userDetails: dict = db.getUser(message.chat.id)[2]
-        userDetails['filterCategory'] = filters['categories'][index]['id']
+        else:
+            bot.send_message(
+                message.chat.id,
+                answers.filterCategoryInvalid
+            )
 
-        db.changeUserState(message.chat.id, states.FILTER_SIZE, userDetails)
-        bot.send_message(
-            message.chat.id,
-            answers.filterSize,
-            reply_markup=keyboards.listKeyboard(sizes)
-        )
+            return
 
-    else:
-        bot.send_message(
-            message.chat.id,
-            answers.filterCategoryInvalid
-        )
+    # set new data to db
+    db.changeUserState(message.chat.id, states.FILTER_SIZE, userFilters)
+
+    # send next step
+    bot.send_message(
+        message.chat.id,
+        answers.filterSize,
+        reply_markup=keyboards.listKeyboard(sizes)
+    )
 
 
 @bot.message_handler(func=userHasState(states.FILTER_SIZE))
 def filterSize(message: Message):
-    # skip this filter
-    if message.text == '.':
-        userDetails: dict = db.getUser(message.chat.id)[2]
-        db.changeUserState(message.chat.id, states.FILTER_COLOR, userDetails)
+    userFilters: dict = db.getUser(message.chat.id)[2]
 
-        return
+    if message.text != '.':
+        if message.text in sizes:
+            # change db data
+            userFilters['size'] = message.text
 
-    if message.text in sizes:
-        # change db data
-        userDetails: dict = db.getUser(message.chat.id)[2]
-        userDetails['filterSize'] = message.text
+        else:
+            bot.send_message(
+                message.chat.id,
+                answers.filterSizeInvalid
+            )
 
-        db.changeUserState(message.chat.id, states.FILTER_COLOR, userDetails)
+            return
 
-        filters = http.getFilters()
-        colors = filters['colors']
+    # change db data
+    db.changeUserState(message.chat.id, states.FILTER_COLOR, userFilters)
 
-        bot.send_message(
-            message.chat.id,
-            answers.filterColor,
-            reply_markup=keyboards.listKeyboard(colors)
-        )
-    else:
-        bot.send_message(
-            message.chat.id,
-            answers.filterSizeInvalid
-        )
+    # get next step data
+    filters = http.getFilters()
+    colors = filters['colors']
+
+    # send next step
+    bot.send_message(
+        message.chat.id,
+        answers.filterColor,
+        reply_markup=keyboards.listKeyboard(colors)
+    )
 
 
 @bot.message_handler(func=userHasState(states.FILTER_COLOR))
 def filterColor(message: Message):
-    # skip this filter
-    if message.text == '.':
-        userDetails: dict = db.getUser(message.chat.id)[2]
-        db.changeUserState(message.chat.id, states.FILTER_PRICE, userDetails)
-        return
+    userFilters: dict = db.getUser(message.chat.id)[2]
 
-    filters = http.getFilters()
-    colors = filters['colors']
+    if message.text != '.':
+        filters = http.getFilters()
+        colors = filters['colors']
 
-    if message.text in colors:
-        # change db data
-        userDetails: dict = db.getUser(message.chat.id)[2]
-        userDetails['filterColor'] = message.text
+        if message.text in colors:
+            # change db data
+            userFilters['color'] = message.text
 
-        db.changeUserState(message.chat.id, states.FILTER_PRICE, userDetails)
+        else:
+            bot.send_message(
+                message.chat.id,
+                answers.filterColorInvalid
+            )
 
-        bot.send_message(
-            message.chat.id,
-            answers.filterPrice,
-            reply_markup=keyboards.removeKeyBoard()
-        )
+            return
 
-    else:
-        bot.send_message(
-            message.chat.id,
-            answers.filterColorInvalid
-        )
+    # set data to db
+    db.changeUserState(message.chat.id, states.FILTER_PRICE, userFilters)
+
+    # send next step
+    bot.send_message(
+        message.chat.id,
+        answers.filterPrice,
+        reply_markup=keyboards.removeKeyBoard()
+    )
 
 
 @bot.message_handler(func=userHasState(states.FILTER_PRICE))
 def filterPrice(message: Message):
-    # skip this filter
-    if message.text == '.':
-        userDetails: dict = db.getUser(message.chat.id)[2]
-        db.changeUserState(message.chat.id, states.SHOW_PRODUCTS, userDetails)
-        return
+    userFilters: dict = db.getUser(message.chat.id)[2]
 
-    try:
-        # parse range
-        priceRangeStr = message.text.replace(' ', '').split('-')
-        priceRange = [float(item) for item in priceRangeStr]
+    if message.text != '.':
+        try:
+            # parse range
+            priceRange = helpers.parseRange(message.text)
 
-        if len(priceRange) != 2:
-            raise Exception('Invalid range')
+            # set data to db
+            userFilters['priceRange'] = {
+                'from': min(priceRange),
+                'to': max(priceRange)
+            }
 
-        # set data to db
-        userDetails: dict = db.getUser(message.chat.id)[2]
-        userDetails['filterPrice'] = {
-            'from': min(priceRange),
-            'to': max(priceRange)
-        }
+        except Exception:
+            bot.send_message(message.chat.id, answers.filterPriceInvalid)
+            return
 
-        db.changeUserState(message.chat.id, states.SHOW_PRODUCTS, userDetails)
+    # get products
+    db.changeUserState(message.chat.id, states.SHOW_PRODUCTS, userFilters)
+    getProducts(message)
+
+
+@bot.message_handler(commands=['next'])
+def getNextProducts(message: Message):
+    user = db.getUser(message.chat.id)
+    page = user[3] + 1
+
+    db.changeUserState(message.chat.id, page=page)
+    getProducts(message)
+
+
+@bot.message_handler(commands=['prev'])
+def getPrevProducts(message: Message):
+    user = db.getUser(message.chat.id)
+    page = user[3] - 1
+
+    db.changeUserState(message.chat.id, page=page)
+    getProducts(message)
+
+
+@bot.message_handler(commands=['get'])
+def getProducts(message: Message):
+    user = db.getUser(message.chat.id)
+    page = user[3]
+
+    if page <= 0:
+        db.changeUserState(message.chat.id, page=1)
+
         bot.send_message(
             message.chat.id,
-            answers.showProducts,
+            answers.outOfRange,
             reply_markup=keyboards.removeKeyBoard()
         )
 
-    except Exception:
-        bot.send_message(message.chat.id, answers.filterPriceInvalid)
+        return
+
+    httpProduct = http.getProducts(user[2], page)
+
+    if not len(httpProduct['data']):
+        bot.send_message(message.chat.id, answers.noData)
+        return
+
+    for product in httpProduct['data']:
+        bot.send_message(message.chat.id, answers.productItem.format(**product))
 
 
 @bot.message_handler()
