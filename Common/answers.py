@@ -49,9 +49,15 @@ outOfRange = 'This page is out of range'
 noData = 'Nothing was found'
 
 productItem = '''
-Name: {name}
-Price: {price}
-Colors: {colors}
-Sizes: {sizes}
-Description: {description}
+<b>Name</b>: {name}
+<b>Price</b>: ${price}
+<b>Colors</b>: {colors}
+<b>Sizes</b>: {sizes}
+<b>Description</b>: {description}
+'''
+
+noFilters = 'No filters was set for this account'
+
+userFilters = '''
+Current  filters: \n\n{category}{size}{color}{price}
 '''

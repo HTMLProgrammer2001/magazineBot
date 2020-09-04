@@ -1,5 +1,6 @@
 import telebot
 from telebot.types import Message
+from json import loads
 
 from Common import config, answers, states, keyboards, helpers
 from DB import DB
@@ -85,14 +86,7 @@ def products(message: Message):
 @bot.message_handler(func=userHasState(states.PRODUCTS_START))
 def willFilter(message: Message):
     if message.text == 'Yes':
-        # start asking of filters
-        db.changeUserState(message.chat.id, states.FILTER_CATEGORY, dict(), 1)
-
-        # make keyboard of categories
-        filters = http.getFilters()
-        reply = keyboards.listKeyboard(map(lambda item: item['name'], filters['categories']))
-
-        bot.send_message(message.chat.id, answers.filterCategory, reply_markup=reply)
+        setFiltersStart(message)
 
     elif message.text == 'No':
         # show all products
@@ -106,6 +100,18 @@ def willFilter(message: Message):
             message.chat.id,
             answers.invalidValue
         )
+
+
+@bot.message_handler(commands=['setFilters'])
+def setFiltersStart(message: Message):
+    # start asking of filters
+    db.changeUserState(message.chat.id, states.FILTER_CATEGORY, dict(), 1)
+
+    # make keyboard of categories
+    filters = http.getFilters()
+    reply = keyboards.listKeyboard(map(lambda item: item['name'], filters['categories']))
+
+    bot.send_message(message.chat.id, answers.filterCategory, reply_markup=reply)
 
 
 @bot.message_handler(func=userHasState(states.FILTER_CATEGORY))
@@ -232,7 +238,7 @@ def filterPrice(message: Message):
     getProducts(message)
 
 
-@bot.message_handler(commands=['next'])
+@bot.message_handler(commands=['next'], func=lambda m: db.hasUser(m.chat.id))
 def getNextProducts(message: Message):
     user = db.getUser(message.chat.id)
     page = user[3] + 1
@@ -241,7 +247,7 @@ def getNextProducts(message: Message):
     getProducts(message)
 
 
-@bot.message_handler(commands=['prev'])
+@bot.message_handler(commands=['prev'], func=lambda m: db.hasUser(m.chat.id))
 def getPrevProducts(message: Message):
     user = db.getUser(message.chat.id)
     page = user[3] - 1
@@ -253,7 +259,14 @@ def getPrevProducts(message: Message):
 @bot.message_handler(commands=['get'])
 def getProducts(message: Message):
     user = db.getUser(message.chat.id)
+
+    if not user:
+        db.createUser(message.chat.id, states.SHOW_PRODUCTS)
+        user = db.getUser(message.chat.id)
+
     page = user[3]
+
+    print(page)
 
     if page <= 0:
         db.changeUserState(message.chat.id, page=1)
@@ -273,7 +286,59 @@ def getProducts(message: Message):
         return
 
     for product in httpProduct['data']:
-        bot.send_message(message.chat.id, answers.productItem.format(**product))
+        product['colors'] = ', '.join(loads(product['colors']))
+        product['sizes'] = ', '.join(loads(product['sizes']))
+
+        reply = keyboards.linkKeyboard(product['name'], 'https://google.com')
+
+        #bot.send_photo(message.chat.id, f"{config.images_base_url}/{product['photo']}")
+        bot.send_photo(message.chat.id, 'https://i.insider.com/5eda82ae3ad8617d4e1c0b2e?width=1100&format=jpeg&auto=webp')
+
+        bot.send_message(
+            message.chat.id,
+            answers.productItem.format(**product),
+            reply_markup=reply
+        )
+
+
+@bot.message_handler(commands=['filters'])
+def getFilters(message: Message):
+    user = db.getUser(message.chat.id)
+
+    if not user:
+        # send no filters response
+        bot.send_message(message.chat.id, answers.noFilters)
+        return
+
+    userFilters = user[2]
+
+    # default filters data
+    filtersData = {
+        'category': '<b>Category:</b> All\n',
+        'size': '<b>Size:</b> All\n',
+        'color': '<b>Color:</b> All\n',
+        'price': '<b>Price:</b> All'
+    }
+
+    # set user filters data
+
+    if userFilters.get('categories'):
+        filtersData['category'] = '<b>Category:</b> {}\n'.format(userFilters.get('categories'))
+
+    if userFilters.get('size'):
+        filtersData['size'] = '<b>Size:</b> {}\n'.format(userFilters.get('size'))
+
+    if userFilters.get('color'):
+        filtersData['color'] = '<b>Color:</b> {}\n'.format(userFilters.get('color'))
+
+    pRange = userFilters.get('priceRange')
+    if pRange:
+        filtersData['price'] = '<b>Price range: </b>'.format(
+            str(pRange['from']) + '-' + str(pRange['to'])
+        )
+
+    # send response
+    bot.send_message(message.chat.id, answers.userFilters.format(**filtersData))
 
 
 @bot.message_handler()

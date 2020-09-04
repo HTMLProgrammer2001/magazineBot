@@ -1,4 +1,5 @@
-from telebot.types import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telebot.types import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, \
+    InlineKeyboardButton, InlineKeyboardMarkup
 
 
 def isFilterProducts():
@@ -23,6 +24,15 @@ def listKeyboard(items):
         buttons.append(KeyboardButton(item))
 
     keyboard.add(*buttons)
+
+    return keyboard
+
+
+def linkKeyboard(message: str, link: str):
+    keyboard = InlineKeyboardMarkup()
+
+    button = InlineKeyboardButton(message, url=link, callback_data=None)
+    keyboard.add(button)
 
     return keyboard
 

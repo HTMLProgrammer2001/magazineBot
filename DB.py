@@ -92,7 +92,13 @@ class DB:
     def getUser(self, userID):
         try:
             self.cursor.execute("SELECT * FROM `bot` WHERE `userID` = %s", (userID,))
-            user = list(self.cursor.fetchone())
+
+            row = self.cursor.fetchone()
+
+            if not row:
+                return False
+
+            user = list(row)
             user[2] = loads(user[2])
 
             return user

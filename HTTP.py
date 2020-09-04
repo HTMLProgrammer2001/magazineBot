@@ -9,20 +9,22 @@ class HTTP:
     filtersCache = {'value': None, 'lastTime': 0}
 
     def getFilters(self):
-        if self.filtersCache['value'] and self.filtersCache['lastTime'] > time() - 3600:
-            return self.filtersCache['value']
+        if not self.filtersCache['value'] or not self.filtersCache['lastTime'] > time() - 3600:
+            response = requests.get(config.api_get_filters)
 
-        response = requests.get(config.api_get_filters)
+            if response.ok:
+                print(response.text)
 
-        if response.ok:
-            print(response.text)
+                self.filtersCache = {
+                    'value': loads(response.text),
+                    'lastTime': time()
+                }
 
-            self.filtersCache = {
-                'value': loads(response.text),
-                'lastTime': time()
-            }
+            else:
+                print(response.content)
+                exit(1)
 
-            return self.filtersCache['value']
+        return self.filtersCache['value']
 
     def getProducts(self, filters: dict, page: int = 1):
         print('Get products')
@@ -31,7 +33,6 @@ class HTTP:
 
         if response.ok:
             print(response.text)
-
             return loads(response.text)
 
         else:
