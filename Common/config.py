@@ -15,5 +15,6 @@ phone = '+380666754334'
 # API
 api_get_filters = 'http://127.0.0.1:8000/api/productFilters'
 api_get_products = 'http://127.0.0.1:8000/api/getProducts'
+api_find = 'http://127.0.0.1:8000/api/find'
 
 images_base_url = 'http://127.0.0.1:8000/images'

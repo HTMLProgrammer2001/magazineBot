@@ -37,3 +37,18 @@ class HTTP:
 
         else:
             print(response.content)
+
+    def findProducts(self, find: str):
+        print('Find products')
+
+        response = requests.get(f"{config.api_find}?find={find}")
+
+        if response.ok:
+            print(response.text)
+            return loads(response.text)
+
+        else:
+            print(response.content)
+
+
+http = HTTP()

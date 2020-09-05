@@ -25,8 +25,7 @@ class DB:
                 `userID` INT UNIQUE NOT NULL,
                 `state` INT NOT NULL,
                 `filters` TEXT DEFAULT NULL,
-                `page` INT DEFAULT 1,
-                `find` VARCHAR(255) DEFAULT NULL
+                `page` INT DEFAULT 1
             )''')
 
             self.conn.commit()
@@ -41,7 +40,7 @@ class DB:
         try:
             # change user only if he exists in db else create new user
             if self.hasUser(userID):
-                self.changeUserState(userID, state, filters)
+                self.changeUserState(userID, state=state, filters=filters)
             else:
                 self.cursor.execute("INSERT INTO `bot` (`userID`, `state`, `filters`) "
                                     "VALUES (%s, %s, %s)", (userID, state, dumps(filters)))
@@ -50,27 +49,23 @@ class DB:
         except Error as err:
             print('Error in user adding: ', err.msg)
 
-    def changeUserState(self, userID, state=None, filters=None, page=None):
+    def changeUserState(self, userID, **fields):
         try:
             if self.hasUser(userID):
                 query = "UPDATE `bot` SET `userID`=`userID`"
 
-                if state:
-                    query += ", `state` = {1}"
+                for key, val in fields.items():
+                    if isinstance(val, dict):
+                        query += f", `{key}` = '{dumps(val)}'"
+                    else:
+                        query += f", `{key}` = {val}"
 
-                if filters:
-                    query += ", `filters` = '{2}'"
+                query += f" WHERE `userID` = {userID}"
 
-                if page:
-                    query += ", `page` = {3}"
-
-                query += " WHERE `userID` = {0}"
-
-                self.cursor.execute(query.format(userID, state, dumps(filters), page))
-
+                self.cursor.execute(query)
                 self.conn.commit()
             else:
-                self.createUser(userID, state)
+                self.createUser(userID, fields.get('state', 1))
         except Error as err:
             print('Error in change user: ', err.msg)
 
@@ -112,3 +107,6 @@ class DB:
     def close(self):
         self.conn.close()
         self.cursor.close()
+
+
+db = DB()

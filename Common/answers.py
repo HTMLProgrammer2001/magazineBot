@@ -57,7 +57,7 @@ productItem = '''
 '''
 
 noFilters = 'No filters was set for this account'
+userFilters = 'Current  filters: \n\n{category}{size}{color}{price}'
 
-userFilters = '''
-Current  filters: \n\n{category}{size}{color}{price}
-'''
+findMessage = 'Enter product name'
+findInvalid = 'Enter name!!!'
