@@ -21,4 +21,4 @@ api_get_filters = f'{api_base_url}api/productFilters'
 api_get_products = f'{api_base_url}api/getProducts'
 api_find = f'{api_base_url}api/find'
 
-images_base_url = f'{api_base_url}images'
+images_base_url = f'{api_base_url}image'
