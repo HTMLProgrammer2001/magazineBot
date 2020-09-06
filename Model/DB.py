@@ -19,7 +19,7 @@ class DB:
         # create table for bot
         self.createTable()
 
-    def getCur():
+    def getCur(self):
         self.close()
 
         self.conn = connect(**config.dbConnection)
