@@ -66,9 +66,13 @@ def sendProduct(userID: str, product: dict):
         loads(product['sizes']) if isinstance(product['sizes'], str) else product['sizes']
     )
 
-    reply = keyboards.linkKeyboard(product['name'], 'https://google.com')
+    reply = keyboards.linkKeyboard(product['name'], f"{config.site_url}products/{product['slug']}")
 
-    bot.send_photo(userID, f"{config.images_base_url}/{product['photo']}")
+    bot.send_photo(
+        userID, 
+        f"{config.images_base_url}/{product['photo']}", 
+        reply_markup=keyboards.removeKeyBoard()
+    )
     #bot.send_photo(userID, 'https://i.insider.com/5eda82ae3ad8617d4e1c0b2e?width=1100&format=jpeg&auto=webp')
 
     bot.send_message(
