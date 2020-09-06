@@ -1,7 +1,7 @@
 from json import loads
 
 from Model.DB import db
-from Common import keyboards, answers
+from Common import keyboards, answers, config
 from Bot import bot
 
 
